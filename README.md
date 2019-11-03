@@ -85,3 +85,32 @@ Each mask file is stored at `BUOY_MASK_IMAGES/mask.[name_and_ext_of_original_img
 
 Use the following command line arguments. 
 > `python3 run_truthing.py <path_to_test_dataset_directory> <closeup_radius>`
+
+## Details: `run_color_analyzer.py`
+### Instructions:
+The `run_color_analyzer.py` tool simply enumerates through each image in `BUOY_PRESENT` and uses its corresponding
+mask in `BUOY_MASK_IMAGES` to generate three histograms (each a normalized sum of all of the individual image
+histograms):
+1. Buoy histograms - HSV value histograms for every pixel marked as a buoy by the mask. 
+2. Other histograms - HSV value histograms for every pixel _not_ marked as a buoy in the mask.
+3. Difference histograms - The difference in the buoy histograms and other histograms. Positive values 
+indicate values that are found more in the buoy sections of the images than the non-buoy sections. 
+
+This tool requires the `mplcursors` python library to allow the user to click and identify various
+points on the plot. 
+
+Use the following command line arguments.
+> `python3 run_color_analyzer.py <path_to_test_dataset_directory>`
+
+## Details: `run_pixel_finder.py`
+### Instructions: 
+The `run_pixel_finder.py` tool lets you browse through each image in BUOY_PRESENT and view 
+which pixels our current CV algorithm has identified as buoy. 
+At the moment, it uses a simple color-matching algorithm that identifies all pixels whose
+HSV values lie within a certain range as `buoy`, and all others as `not buoy`. 
+The `buoy` pixels are marked with a red contour. 
+
+Use `j` to move to the next image, and `k` to move to the previous image, and `q` to quit.
+
+Use the following command line arguments.
+>`python3 run_pixel_finder.py <path_to_test_dataset_directory>`. 
