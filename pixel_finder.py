@@ -16,10 +16,11 @@ import os
 import sys
 import cv2
 import numpy as np
+import pickle
 
 
 class PixelFinder:
-    def __init__(self, base_path, hsv_low, hsv_high):
+    def __init__(self, base_path, hsv_low, hsv_high, threshold):
         self.BASE_PATH = base_path
         self.IMG_PATH = self.BASE_PATH + "/BUOY_PRESENT/"
         self.HSV_LOW = hsv_low
@@ -29,6 +30,8 @@ class PixelFinder:
         self.current_filename = None
         self.kernel_open = np.ones((2, 2))
         self.kernel_close = np.ones((12, 12))
+        self.threshold = threshold
+        self.histograms = None
 
     def run(self):
         if not self.check_directories():
@@ -115,12 +118,21 @@ class PixelFinder:
         """
         # Convert image to HSV, and find/clean mask with buoy-colored pixels.
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        mask = cv2.inRange(hsv, self.HSV_LOW, self.HSV_HIGH)
+        self.get_histogram()
+
+        cv2.imshow("image", image)
+
+        relevance_map = self.get_relevance_map(hsv)
+        cv2.imshow("relevance_map", relevance_map)
+
+        _, mask = cv2.threshold(relevance_map, self.threshold, 255, cv2.THRESH_BINARY)
         mask = self.clean_mask(mask)
 
+        cv2.imshow("mask", mask)
+
         # Draw contours on the image based on the mask.
-        contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(image, contours, -1, (0, 0, 255), 1)
+        # contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        # cv2.drawContours(image, contours, -1, (0, 0, 255), 1)
 
     def clean_mask(self, mask):
         """
@@ -131,3 +143,24 @@ class PixelFinder:
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, self.kernel_open)
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, self.kernel_close)
         return mask
+
+    def get_relevance_map(self, hsv):
+
+        def map_func(depth_channels):
+            hue_hist = self.histograms[0]
+            sat_hist = self.histograms[1]
+            val_hist = self.histograms[2]
+
+            return hue_hist[depth_channels[0]] + sat_hist[depth_channels[1]] + val_hist[depth_channels[2]]
+
+        relevance_map = np.apply_along_axis(map_func, 2, hsv)
+        cv2.normalize(relevance_map, relevance_map, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+        relevance_map = relevance_map.astype(np.uint8)
+        # Denoise
+        relevance_map = cv2.medianBlur(relevance_map, 7)
+
+        return relevance_map
+
+    def get_histogram(self):
+        with open("buoy_histogram.pickle", "rb") as pickle_file:
+            self.histograms = pickle.load(pickle_file)

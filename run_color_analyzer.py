@@ -3,7 +3,7 @@ import sys
 
 
 def main(path):
-    ca = color_analyzer.ColorAnalyzer(path)
+    ca = color_analyzer.ColorAnalyzer(path, save_differences=True)
     ca.run()
 
 

@@ -3,10 +3,11 @@ import sys
 import cv2
 from matplotlib import pyplot as plt
 import mplcursors
+import pickle
 
 
 class ColorAnalyzer:
-    def __init__(self, base_path):
+    def __init__(self, base_path, save_differences=False, show_all=True):
         self.BASE_PATH = base_path
         self.IMG_PATH = base_path + "/BUOY_PRESENT/"
         self.MASK_PATH = base_path + "/BUOY_MASK_IMAGES/"
@@ -15,7 +16,9 @@ class ColorAnalyzer:
         self.hue_hist_buoy, self.hue_hist_other = None, None
         self.sat_hist_buoy, self.sat_hist_other = None, None
         self.val_hist_buoy, self.val_hist_other = None, None
-        self.show_all = True
+        self.total_hist_buoy, self.total_hist_other = None, None
+        self.show_all = show_all
+        self.save_differences = save_differences
 
     def run(self):
         if not self.check_directories():
@@ -27,6 +30,9 @@ class ColorAnalyzer:
             self.show_histograms()
         else:
             self.show_diff_hist_only()
+
+        if self.save_differences:
+            self.create_differences_file()
 
     def check_directories(self):
         """
@@ -175,3 +181,12 @@ class ColorAnalyzer:
         mplcursors.cursor()
 
         plt.show()
+
+    def create_differences_file(self):
+        with open("buoy_histogram.pickle", "wb") as pickle_out:
+            dump_tuple = (self.hue_hist_buoy - self.hue_hist_other,
+                          self.sat_hist_buoy - self.sat_hist_other,
+                          self.val_hist_buoy - self.val_hist_other)
+            pickle.dump(dump_tuple, pickle_out)
+
+

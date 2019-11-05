@@ -3,8 +3,8 @@ import sys
 import numpy as np
 
 
-def main(base_path, hsv_low, hsv_high):
-    pf = pixel_finder.PixelFinder(base_path, hsv_low, hsv_high)
+def main(base_path, hsv_low, hsv_high, threshold):
+    pf = pixel_finder.PixelFinder(base_path, hsv_low, hsv_high, threshold)
     pf.run()
 
 
@@ -15,6 +15,7 @@ if __name__ == "__main__":
 
     HSV_LOW = np.array([1, 50, 30], np.uint8)
     HSV_HIGH = np.array([36, 255, 255], np.uint8)
+    THRESHOLD_PCT = 0.8
 
     path = sys.argv[1]
-    main(path, HSV_LOW, HSV_HIGH)
+    main(path, HSV_LOW, HSV_HIGH, THRESHOLD_PCT * 255)
