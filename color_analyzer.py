@@ -4,6 +4,7 @@ import cv2
 from matplotlib import pyplot as plt
 import mplcursors
 import pickle
+import numpy as np
 
 
 class ColorAnalyzer:
@@ -13,10 +14,9 @@ class ColorAnalyzer:
         self.MASK_PATH = base_path + "/BUOY_MASK_IMAGES/"
         self.image_names = []
         self.current_file = None
-        self.hue_hist_buoy, self.hue_hist_other = None, None
-        self.sat_hist_buoy, self.sat_hist_other = None, None
-        self.val_hist_buoy, self.val_hist_other = None, None
-        self.total_hist_buoy, self.total_hist_other = None, None
+        self.hue_hist_buoy, self.hue_hist_other = np.zeros((180,1)), np.zeros((180,1))
+        self.sat_hist_buoy, self.sat_hist_other = np.zeros((256,1)), np.zeros((256,1))
+        self.val_hist_buoy, self.val_hist_other = np.zeros((256,1)), np.zeros((256,1))
         self.show_all = show_all
         self.save_differences = save_differences
 
@@ -79,6 +79,7 @@ class ColorAnalyzer:
         (3) Difference histograms - The difference between the buoy histograms and the other histograms. Positive
         values indicate HSV values found MORE in the buoy sections than in the non-buoy sections, and vice-versa for
         negative.
+                # TODO: Normalize each image separately
         """
         for image_name in self.image_names:
             self.current_file = image_name
@@ -95,19 +96,38 @@ class ColorAnalyzer:
             histogram each time.
             Set `hist` to specify which histogram we're accumulating from. 
             '''
-            self.hue_hist_buoy = \
-                cv2.calcHist([hsv], [0], mask, [180], [0, 179], hist=self.hue_hist_buoy, accumulate=True)
-            self.sat_hist_buoy = \
-                cv2.calcHist([hsv], [1], mask, [256], [0, 255], hist=self.sat_hist_buoy, accumulate=True)
-            self.val_hist_buoy = \
-                cv2.calcHist([hsv], [2], mask, [256], [0, 255], hist=self.val_hist_buoy, accumulate=True)
+            new_hue_hist_buoy = \
+                cv2.calcHist([hsv], [0], mask, [180], [0, 179])
+            new_sat_hist_buoy = \
+                cv2.calcHist([hsv], [1], mask, [256], [0, 255])
+            new_val_hist_buoy = \
+                cv2.calcHist([hsv], [2], mask, [256], [0, 255])
 
-            self.hue_hist_other = \
-                cv2.calcHist([hsv], [0], inverted_mask, [180], [0, 179], hist=self.hue_hist_other, accumulate=True)
-            self.sat_hist_other = \
-                cv2.calcHist([hsv], [1], inverted_mask, [256], [0, 255], hist=self.sat_hist_other, accumulate=True)
-            self.val_hist_other = \
-                cv2.calcHist([hsv], [2], inverted_mask, [256], [0, 255], hist=self.val_hist_other, accumulate=True)
+            new_hue_hist_other = \
+                cv2.calcHist([hsv], [0], inverted_mask, [180], [0, 179])
+            new_sat_hist_other = \
+                cv2.calcHist([hsv], [1], inverted_mask, [256], [0, 255])
+            new_val_hist_other = \
+                cv2.calcHist([hsv], [2], inverted_mask, [256], [0, 255])
+
+            # Normalize all the histograms so that image size (and raw # of pixels) doesn't matter.
+            # Currently uses an L2 norm, where the histograms are scaled so that the L2 norm of the result
+            # vector equals 1.0 (the alpha parameter).
+            # https://docs.opencv.org/2.4/modules/core/doc/operations_on_arrays.html, see `normalize`
+            cv2.normalize(new_hue_hist_buoy, new_hue_hist_buoy)
+            cv2.normalize(new_sat_hist_buoy, new_sat_hist_buoy)
+            cv2.normalize(new_val_hist_buoy, new_val_hist_buoy)
+            cv2.normalize(new_hue_hist_other, new_hue_hist_other)
+            cv2.normalize(new_sat_hist_other, new_sat_hist_other)
+            cv2.normalize(new_val_hist_other, new_val_hist_other)
+
+            # Add contribution.
+            self.hue_hist_buoy += new_hue_hist_buoy
+            self.sat_hist_buoy += new_sat_hist_buoy
+            self.val_hist_buoy += new_val_hist_buoy
+            self.hue_hist_other += new_hue_hist_other
+            self.sat_hist_other += new_sat_hist_other
+            self.val_hist_other += new_sat_hist_other
 
         # We normalize because there are much more pixels in the non-buoy parts of the image, so those when we
         # subtract the histograms to find the difference, they'd overwhelm the buoy histograms.
@@ -183,10 +203,9 @@ class ColorAnalyzer:
         plt.show()
 
     def create_differences_file(self):
+        # TODO: Look into np.save, np.load
         with open("buoy_histogram.pickle", "wb") as pickle_out:
             dump_tuple = (self.hue_hist_buoy - self.hue_hist_other,
                           self.sat_hist_buoy - self.sat_hist_other,
                           self.val_hist_buoy - self.val_hist_other)
             pickle.dump(dump_tuple, pickle_out)
-
-

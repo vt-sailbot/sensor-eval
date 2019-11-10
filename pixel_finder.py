@@ -144,18 +144,19 @@ class PixelFinder:
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, self.kernel_close)
         return mask
 
+    def map_func(self, depth_channels):
+        hue_hist = self.histograms[0]
+        sat_hist = self.histograms[1]
+        val_hist = self.histograms[2]
+
+        return hue_hist[depth_channels[0]] + sat_hist[depth_channels[1]] + val_hist[depth_channels[2]]
+
     def get_relevance_map(self, hsv):
 
-        def map_func(depth_channels):
-            hue_hist = self.histograms[0]
-            sat_hist = self.histograms[1]
-            val_hist = self.histograms[2]
-
-            return hue_hist[depth_channels[0]] + sat_hist[depth_channels[1]] + val_hist[depth_channels[2]]
-
-        relevance_map = np.apply_along_axis(map_func, 2, hsv)
+        relevance_map = np.apply_along_axis(self.map_func, 2, hsv)
         cv2.normalize(relevance_map, relevance_map, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
         relevance_map = relevance_map.astype(np.uint8)
+
         # Denoise
         relevance_map = cv2.medianBlur(relevance_map, 7)
 
